@@ -66,6 +66,58 @@ BoltzmannLimiter<dim, nstate, real>::BoltzmannLimiter(
     }
 }
 
+/// taken from calculate_l_n_error in bound_preserving_limiter_tests.cpp
+/// modified to be solution-domain wide L2-norm computation according to Dzanic 2025
+template <int dim, int nstate>
+std::array<double,3> BoundPreservingLimiterTests<dim, nstate>::calculate_l_2_norm(
+    std::shared_ptr<DGBase<dim, double>> dg,
+    const int poly_degree,
+    const double final_time) const
+{
+    // Overintegrate the error to make sure there is not integration error in the error estimate
+    int overintegrate = 0;
+    dealii::QGauss<dim> quad_extra(poly_degree + 1 + overintegrate);
+    dealii::FEValues<dim, dim> fe_values_extra(*(dg->high_order_grid->mapping_fe_field), dg->fe_collection[poly_degree], quad_extra,
+        dealii::update_values | dealii::update_JxW_values | dealii::update_quadrature_points);
+
+    const unsigned int n_quad_pts = fe_values_extra.n_quadrature_points;
+    std::array<double, nstate> soln_at_q;
+
+    double l2_norm = 0.0;
+
+    // Integrate every cell and compute L2
+    std::vector<dealii::types::global_dof_index> dofs_indices(fe_values_extra.dofs_per_cell);
+    const dealii::Tensor<1, 3, double> adv_speeds = Parameters::ManufacturedSolutionParam::get_default_advection_vector();
+    
+    // iterating through each cell in the solution domain
+    for (auto cell = dg->dof_handler.begin_active(); cell != dg->dof_handler.end(); ++cell) {
+        if (!cell->is_locally_owned()) continue;
+
+        fe_values_extra.reinit(cell);
+        cell->get_dof_indices(dofs_indices);
+
+        for (unsigned int iquad = 0; iquad < n_quad_pts; ++iquad) {
+
+            std::fill(soln_at_q.begin(), soln_at_q.end(), 0.0);
+            for (unsigned int idof = 0; idof < fe_values_extra.dofs_per_cell; ++idof) {
+                const unsigned int istate = fe_values_extra.get_fe().system_to_component_index(idof).first;
+                soln_at_q[istate] += dg->solution[dofs_indices[idof]] * fe_values_extra.shape_value_component(idof, iquad, istate);
+            }
+
+            const dealii::Point<dim> qpoint = (fe_values_extra.quadrature_point(iquad));
+            double uexact = calculate_uexact(qpoint, adv_speeds, final_time);   
+
+            //std::cout << "u:   " << soln_at_q[0] << "   uexact:   " << uexact << std::endl;       
+
+            l2_norm += pow(abs(soln_at_q[0] - uexact), 2.0) * fe_values_extra.JxW(iquad);
+        }
+    }
+    //MPI sum
+    double l2error_mpi = dealii::Utilities::MPI::sum(l2error, this->mpi_communicator);
+
+    return lerror_mpi;
+}
+
 template <int dim, int nstate, typename real>
 std::vector<real> BoltzmannLimiter<dim, nstate, real>::get_integrating_domain(
     const std::array<std::vector<real>, nstate>&    soln_at_q,
@@ -512,9 +564,11 @@ void BoltzmannLimiter<dim, nstate, real>::limit(
         for (int i = 0; i < 2; ++i)
             integrating_limits[i] = get_integrating_domain(soln_at_q[0], n_quad_pts, 4.0)[i];
                                                                                  //   ^   this is the k-value; k=4 here
+										 //   
         // use the integrating domain limits to develop the min-max f-function against microscopic velocity (u) points
         std::vector< std::vector<real> > min_max_envelope = get_boltzmann_distribution(soln_at_q[0], n_quad_pts, 0.01, integrating_limits[0], integrating_limits[1]);
                                                                                                                 //  ^  this is the resolution of the boltmann distribution plot
+
         // Obtain value used to linearly scale density - *** can comment out the first 3 lines so that theta runs every time because it's bascially 
         //                                               *** the same scaling as Wang and Zhang
 
