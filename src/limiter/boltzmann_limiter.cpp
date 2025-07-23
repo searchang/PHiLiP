@@ -511,9 +511,9 @@ void BoltzmannLimiter<dim, nstate, real>::limit(
         std::array<real, 2> integrating_limits;
         for (int i = 0; i < 2; ++i)
             integrating_limits[i] = get_integrating_domain(soln_at_q[0], n_quad_pts, 4.0)[i];
-                                                                                    //   ^   this is the k-value; k=4 here
+                                                                                 //   ^   this is the k-value; k=4 here
         // use the integrating domain limits to develop the min-max f-function against microscopic velocity (u) points
-        std::vector< std::vector<real> > min_max_envelope = get_boltzmann_distribution(soln_at_q[0], n_quad_pts, 0.1, integrating_limits[0], integrating_limits[1]);
+        std::vector< std::vector<real> > min_max_envelope = get_boltzmann_distribution(soln_at_q[0], n_quad_pts, 0.01, integrating_limits[0], integrating_limits[1]);
                                                                                                                 //  ^  this is the resolution of the boltmann distribution plot
         // Obtain value used to linearly scale density - *** can comment out the first 3 lines so that theta runs every time because it's bascially 
         //                                               *** the same scaling as Wang and Zhang
