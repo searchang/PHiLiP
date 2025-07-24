@@ -60,6 +60,15 @@ public:
 
 protected:
 
+    /// Obtaining L2 norm for Eq 8
+    /// Using 2.2 from Dzanic, Martinelli 2025
+    std::vector<real> l_2_norm_squared(
+    const std::array<std::vector<real>, nstate>&    soln_at_q_dim,
+    const unsigned int                              n_quad_pts,
+    const double                                    resolution,
+    const double                                    lower_distribution_limit,
+    const double                                    upper_distribution_limit);
+    
     /// Obtain the microscopic velocity domain using the min-max strategy over the stencil of the cell
     /// Using 3.7 from Dzanic, Martinelli 2025
     std::vector<real> get_integrating_domain(
