@@ -70,19 +70,12 @@ BoltzmannLimiter<dim, nstate, real>::BoltzmannLimiter(
 /// modified to be solution-domain wide L2-norm computation according to Dzanic 2025
 template <int dim, int nstate, typename real>
 std::vector<real> BoltzmannLimiter<dim, nstate, real>::l_2_norm_squared(
-    const std::array<std::vector<real>, nstate>&    soln_at_q_dim,
-    const unsigned int                              n_quad_pts,
-    const double                                    resolution,
-    const double                                    lower_distribution_limit,
-    const double                                    upper_distribution_limit)
+    dealii::LinearAlgebra::distributed::Vector<double>&     solution,
+    const double                                            n_integration_pts,  // # of integration points across the microscopic velocity domain, including endpoints
+    const double                                            k)
 {
-
-    const int num_u = static_cast<int>((upper_distribution_limit - lower_distribution_limit) / resolution) + 1;
-    if (num_u < 0) {
-        std::cout << "Error: Integrating limits are diverging from nonphysical values....Aborting" << std::endl;
-        std::cout << "upper_distribution_limit:   " << upper_distribution_limit << "    lower_distribution_limit:   " << lower_distribution_limit << std::endl;
-        std::abort();
-    }
+    std::vector<real> bounds(2, 0.0);
+    std::vector<real> U_values;
 
     // Overintegrate the error to make sure there is not integration error in the error estimate
     int overintegrate = 0;
@@ -92,20 +85,19 @@ std::vector<real> BoltzmannLimiter<dim, nstate, real>::l_2_norm_squared(
         dealii::update_values | dealii::update_JxW_values | dealii::update_quadrature_points);
 
     const unsigned int n_quad_pts = fe_values_extra.n_quadrature_points;
-    std::array<double, nstate> soln_at_q;
-
-    double l2_norm = 0.0;
+    std::array<double, nstate> soln_at_q;    
 
     // Integrate every cell and compute L2
     std::vector<dealii::types::global_dof_index> dofs_indices(fe_values_extra.dofs_per_cell);
-    
-    // iterating through each cell in the solution domain
+
+    // iterating through each cell in the solution domain, finding the integrating domain using the minimum and maximum values along each direction
     for (auto cell = dg->dof_handler.begin_active(); cell != dg->dof_handler.end(); ++cell) {
         if (!cell->is_locally_owned()) continue;
 
         fe_values_extra.reinit(cell);
         cell->get_dof_indices(dofs_indices);
 
+        // iterating through each quad point in a given cell
         for (unsigned int iquad = 0; iquad < n_quad_pts; ++iquad) {
 
             std::fill(soln_at_q.begin(), soln_at_q.end(), 0.0);
@@ -113,21 +105,77 @@ std::vector<real> BoltzmannLimiter<dim, nstate, real>::l_2_norm_squared(
             // iterate for each of the DOFs in a cell ie. each of the quad points
             for (unsigned int idof = 0; idof < fe_values_extra.dofs_per_cell; ++idof) {
                 const unsigned int istate = fe_values_extra.get_fe().system_to_component_index(idof).first;
-                soln_at_q[istate] += dg->solution[dofs_indices[idof]] * fe_values_extra.shape_value_component(idof, iquad, istate);         // obtain the state vector at each quad point?
+
+                // sets the state variable values at the given DOF
+                soln_at_q[istate] += solution[dofs_indices[idof]] * fe_values_extra.shape_value_component(idof, iquad, istate);     
             }
 
-            l2_norm += pow(abs(soln_at_q[0] - uexact), 2.0) * fe_values_extra.JxW(iquad);           // what is JxW?
+            real density = soln_at_q[0];
+            real pressure = euler_physics->compute_pressure(soln_at_q);
+            real theta = pressure / density;
+
+            real U = soln_at_q[1] / soln_at_q[0];
+            U_values.push_back(U);
+
+            real pot_lower_bound = U - k * sqrt(theta);
+            real pot_upper_bound = U + k * sqrt(theta);
+
+            bounds[0] = std::min(pot_lower_bound, bounds[0]);
+            bounds[1] = std::max(pot_upper_bound, bounds[1]);
         }
     }
-    //MPI sum
-    double l2_norm_mpi = dealii::Utilities::MPI::sum(l2_norm, this->mpi_communicator);
 
-    return lerror_mpi;
+    const real du = (bounds[1] - bounds[0]) / (n_integration_pts - 1);
+
+    // const int num_u = static_cast<int>((upper_distribution_limit - lower_distribution_limit) / resolution) + 1;
+    // if (num_u < 0) {
+    //     std::cout << "Error: Integrating limits are diverging from nonphysical values....Aborting" << std::endl;
+    //     std::cout << "upper_distribution_limit:   " << upper_distribution_limit << "    lower_distribution_limit:   " << lower_distribution_limit << std::endl;
+    //     std::abort();
+    // }
+
+    std::vector<real> l_2_norm_squared_values(n_integration_pts, 0.0);
+
+    // iterating through each u-value in the discretization of the microscopic velocity domain
+    for (int i = 0; i < n_integration_pts; ++i) {
+        
+        double u = bounds[0] + i * du;
+
+        for (auto cell = dg->dof_handler.begin_active(); cell != dg->dof_handler.end(); ++cell) {
+            if (!cell->is_locally_owned()) continue;
+
+            // fe_values_extra.reinit(cell);
+            // cell->get_dof_indices(dofs_indices);
+
+            // iterating through each quad point in a given cell
+            for (unsigned int iquad = 0; iquad < n_quad_pts; ++iquad) {
+
+                // std::fill(soln_at_q.begin(), soln_at_q.end(), 0.0);
+
+                // // iterate for each of the DOFs in a cell ie. each of the quad points
+                // for (unsigned int idof = 0; idof < fe_values_extra.dofs_per_cell; ++idof) {
+                //     const unsigned int istate = fe_values_extra.get_fe().system_to_component_index(idof).first;
+
+                //     // sets the state variable values at the given DOF
+                //     soln_at_q[istate] += solution[dofs_indices[idof]] * fe_values_extra.shape_value_component(idof, iquad, istate);     
+                // }
+
+                // real U = soln_at_q[1] / soln_at_q[0];
+                l_2_norm_squared_values[i] += pow(u - U[(i * n_quad_pts + iquad)], 2.0) * fe_values_extra.JxW(iquad);      
+
+            }
+        }
+
+        
+
+    }
+
+    return l_2_norm_squared_values;
 }
 
 template <int dim, int nstate, typename real>
 std::vector<real> BoltzmannLimiter<dim, nstate, real>::get_integrating_domain(
-    const std::array<std::vector<real>, nstate>&    soln_at_q,
+    const std::array<std::vector<real>, nstate>&    soln_at_q_dim,
     const unsigned int                              n_quad_pts,
     const double                                    k)
         // from Dzanic, Martinelli 2025 3.7: k=4 bounds relative error by approximately 6e-5 and k=8 bound relative error by approximately 1e-15
@@ -137,7 +185,7 @@ std::vector<real> BoltzmannLimiter<dim, nstate, real>::get_integrating_domain(
 
     for (unsigned int iquad = 0; iquad < n_quad_pts; ++iquad) {
         for (unsigned int istate = 0; istate < nstate; ++istate) {
-            soln_at_iquad[istate] = soln_at_q[istate][iquad];
+            soln_at_iquad[istate] = soln_at_q_dim[istate][iquad];
         }
         
         // Did not account for non-Euler style situations as in the get_theta2_Wang2012 function
@@ -435,9 +483,15 @@ void BoltzmannLimiter<dim, nstate, real>::limit(
         state_min.resize(nstate,1e9);
     }
 
+    // global computation of L2 norm across entire solution domain for each of the microscopic velocity values
+    for (auto soln_cell : dof_handler.active_cell_iterators()) {
+        if (!soln_cell->is_locally_owned()) continue;
 
-/// add global L2 norm function here in a loop through all of the cells so that its global value can be used for each of the cells in the calculating of the boltzmann distribution for each cell/node ///
 
+
+
+
+    }
 
 
     for (auto soln_cell : dof_handler.active_cell_iterators()) {
@@ -587,12 +641,7 @@ void BoltzmannLimiter<dim, nstate, real>::limit(
         // Obtain value used to linearly scale density - *** can comment out the first 3 lines so that theta runs every time because it's bascially 
         //                                               *** the same scaling as Wang and Zhang
 
-        // use the f-function points to obtain macroscopic state vector limits - outputs state vector and pressure ie., dim + 3 values for min and then max
-        // std::vector<real> soln_cell_min(nstate);
-        // std::vector<real> soln_cell_max(nstate);
         std::vector<std::vector<real>> cell_max_and_mins = boltzmann_limits(min_max_envelope[0], min_max_envelope[1], min_max_envelope[2]);
-        // soln_cell_min = boltzmann_limits(min_max_envelope[0], min_max_envelope[1], min_max_envelope[2])[0];
-        // soln_cell_max = boltzmann_limits(min_max_envelope[0], min_max_envelope[1], min_max_envelope[2])[1];
 
         for(int istate = 0; istate < nstate; ++istate) {
             if(state_max[istate] < cell_max_and_mins[1][istate])
