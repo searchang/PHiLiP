@@ -68,110 +68,112 @@ BoltzmannLimiter<dim, nstate, real>::BoltzmannLimiter(
 
 /// taken from calculate_l_n_error in bound_preserving_limiter_tests.cpp
 /// modified to be solution-domain wide L2-norm computation according to Dzanic 2025
-template <int dim, int nstate, typename real>
-std::vector<real> BoltzmannLimiter<dim, nstate, real>::l_2_norm_squared(
-    dealii::LinearAlgebra::distributed::Vector<double>&     solution,
-    const double                                            n_integration_pts,  // # of integration points across the microscopic velocity domain, including endpoints
-    const double                                            k)
-{
-    std::vector<real> bounds(2, 0.0);
-    std::vector<real> U_values;
+// template <int dim, int nstate, typename real>
+// std::vector<real> BoltzmannLimiter<dim, nstate, real>::l_2_norm_squared(
+//     dealii::LinearAlgebra::distributed::Vector<double>&     solution,
+//     const int                                               poly_degree,
+//     const double                                            n_integration_pts,  // # of integration points across the microscopic velocity domain, including endpoints
+//     const double                                            k)
+// {
+//     std::vector<real> bounds(2, 0.0);
+//     std::vector<real> U_values;
 
-    // Overintegrate the error to make sure there is not integration error in the error estimate
-    int overintegrate = 0;
-    dealii::QGauss<dim> quad_extra(poly_degree + 1 + overintegrate);
+//     // Overintegrate the error to make sure there is not integration error in the error estimate
+//     int overintegrate = 0;
+//     dealii::QGauss<dim> quad_extra(poly_degree + 1 + overintegrate);
 
-    dealii::FEValues<dim, dim> fe_values_extra(*(dg->high_order_grid->mapping_fe_field), dg->fe_collection[poly_degree], quad_extra,
-        dealii::update_values | dealii::update_JxW_values | dealii::update_quadrature_points);
+//     dealii::FEValues<dim, dim> fe_values_extra(*(dg->high_order_grid->mapping_fe_field), dg->fe_collection[poly_degree], quad_extra,
+//         dealii::update_values | dealii::update_JxW_values | dealii::update_quadrature_points);
 
-    const unsigned int n_quad_pts = fe_values_extra.n_quadrature_points;
-    std::array<double, nstate> soln_at_q;    
+//     const unsigned int n_quad_pts = fe_values_extra.n_quadrature_points;
+//     std::array<double, nstate> soln_at_q;    
 
-    // Integrate every cell and compute L2
-    std::vector<dealii::types::global_dof_index> dofs_indices(fe_values_extra.dofs_per_cell);
+//     // Integrate every cell and compute L2
+//     std::vector<dealii::types::global_dof_index> dofs_indices(fe_values_extra.dofs_per_cell);
 
-    // iterating through each cell in the solution domain, finding the integrating domain using the minimum and maximum values along each direction
-    for (auto cell = dg->dof_handler.begin_active(); cell != dg->dof_handler.end(); ++cell) {
-        if (!cell->is_locally_owned()) continue;
+//     // iterating through each cell in the solution domain, finding the integrating domain using the minimum and maximum values along each direction
+//     for (auto cell = dg->dof_handler.begin_active(); cell != dg->dof_handler.end(); ++cell) {
+//         if (!cell->is_locally_owned()) continue;
 
-        fe_values_extra.reinit(cell);
-        cell->get_dof_indices(dofs_indices);
+//         fe_values_extra.reinit(cell);
+//         cell->get_dof_indices(dofs_indices);
 
-        // iterating through each quad point in a given cell
-        for (unsigned int iquad = 0; iquad < n_quad_pts; ++iquad) {
+//         // iterating through each quad point in a given cell
+//         for (unsigned int iquad = 0; iquad < n_quad_pts; ++iquad) {
 
-            std::fill(soln_at_q.begin(), soln_at_q.end(), 0.0);
+//             std::fill(soln_at_q.begin(), soln_at_q.end(), 0.0);
 
-            // iterate for each of the DOFs in a cell ie. each of the quad points
-            for (unsigned int idof = 0; idof < fe_values_extra.dofs_per_cell; ++idof) {
-                const unsigned int istate = fe_values_extra.get_fe().system_to_component_index(idof).first;
+//             // iterate for each of the DOFs in a cell ie. each of the quad points
+//             for (unsigned int idof = 0; idof < fe_values_extra.dofs_per_cell; ++idof) {
+//                 const unsigned int istate = fe_values_extra.get_fe().system_to_component_index(idof).first;
 
-                // sets the state variable values at the given DOF
-                soln_at_q[istate] += solution[dofs_indices[idof]] * fe_values_extra.shape_value_component(idof, iquad, istate);     
-            }
+//                 // sets the state variable values at the given DOF
+//                 soln_at_q[istate] += solution[dofs_indices[idof]] * fe_values_extra.shape_value_component(idof, iquad, istate);     
+//             }
 
-            real density = soln_at_q[0];
-            real pressure = euler_physics->compute_pressure(soln_at_q);
-            real theta = pressure / density;
+//             real density = soln_at_q[0];
+//             real pressure = euler_physics->compute_pressure(soln_at_q);
+//             real theta = pressure / density;
 
-            real U = soln_at_q[1] / soln_at_q[0];
-            U_values.push_back(U);
+//             real U = soln_at_q[1] / soln_at_q[0];
+//             U_values.push_back(U);
 
-            real pot_lower_bound = U - k * sqrt(theta);
-            real pot_upper_bound = U + k * sqrt(theta);
+//             real pot_lower_bound = U - k * sqrt(theta);
+//             real pot_upper_bound = U + k * sqrt(theta);
 
-            bounds[0] = std::min(pot_lower_bound, bounds[0]);
-            bounds[1] = std::max(pot_upper_bound, bounds[1]);
-        }
-    }
+//             bounds[0] = std::min(pot_lower_bound, bounds[0]);
+//             bounds[1] = std::max(pot_upper_bound, bounds[1]);
+//         }
+//     }
 
-    const real du = (bounds[1] - bounds[0]) / (n_integration_pts - 1);
+//     const real du = (bounds[1] - bounds[0]) / (n_integration_pts - 1);
 
-    // const int num_u = static_cast<int>((upper_distribution_limit - lower_distribution_limit) / resolution) + 1;
-    // if (num_u < 0) {
-    //     std::cout << "Error: Integrating limits are diverging from nonphysical values....Aborting" << std::endl;
-    //     std::cout << "upper_distribution_limit:   " << upper_distribution_limit << "    lower_distribution_limit:   " << lower_distribution_limit << std::endl;
-    //     std::abort();
-    // }
+//     // const int num_u = static_cast<int>((upper_distribution_limit - lower_distribution_limit) / resolution) + 1;
+//     // if (num_u < 0) {
+//     //     std::cout << "Error: Integrating limits are diverging from nonphysical values....Aborting" << std::endl;
+//     //     std::cout << "upper_distribution_limit:   " << upper_distribution_limit << "    lower_distribution_limit:   " << lower_distribution_limit << std::endl;
+//     //     std::abort();
+//     // }
 
-    std::vector<real> l_2_norm_squared_values(n_integration_pts, 0.0);
+//     std::vector<real> l_2_norm_squared_values(n_integration_pts, 0.0);
 
-    // iterating through each u-value in the discretization of the microscopic velocity domain
-    for (int i = 0; i < n_integration_pts; ++i) {
+//     // iterating through each u-value in the discretization of the microscopic velocity domain
+//     for (int i = 0; i < n_integration_pts; ++i) {
         
-        double u = bounds[0] + i * du;
+//         double u = bounds[0] + i * du;
 
-        for (auto cell = dg->dof_handler.begin_active(); cell != dg->dof_handler.end(); ++cell) {
-            if (!cell->is_locally_owned()) continue;
+//         for (auto cell = dg->dof_handler.begin_active(); cell != dg->dof_handler.end(); ++cell) {
+//             if (!cell->is_locally_owned()) continue;
 
-            // fe_values_extra.reinit(cell);
-            // cell->get_dof_indices(dofs_indices);
+//             // fe_values_extra.reinit(cell);
+//             // cell->get_dof_indices(dofs_indices);
 
-            // iterating through each quad point in a given cell
-            for (unsigned int iquad = 0; iquad < n_quad_pts; ++iquad) {
+//             // iterating through each quad point in a given cell
+//             for (unsigned int iquad = 0; iquad < n_quad_pts; ++iquad) {
 
-                // std::fill(soln_at_q.begin(), soln_at_q.end(), 0.0);
+//                 // std::fill(soln_at_q.begin(), soln_at_q.end(), 0.0);
 
-                // // iterate for each of the DOFs in a cell ie. each of the quad points
-                // for (unsigned int idof = 0; idof < fe_values_extra.dofs_per_cell; ++idof) {
-                //     const unsigned int istate = fe_values_extra.get_fe().system_to_component_index(idof).first;
+//                 // // iterate for each of the DOFs in a cell ie. each of the quad points
+//                 // for (unsigned int idof = 0; idof < fe_values_extra.dofs_per_cell; ++idof) {
+//                 //     const unsigned int istate = fe_values_extra.get_fe().system_to_component_index(idof).first;
 
-                //     // sets the state variable values at the given DOF
-                //     soln_at_q[istate] += solution[dofs_indices[idof]] * fe_values_extra.shape_value_component(idof, iquad, istate);     
-                // }
+//                 //     // sets the state variable values at the given DOF
+//                 //     soln_at_q[istate] += solution[dofs_indices[idof]] * fe_values_extra.shape_value_component(idof, iquad, istate);     
+//                 // }
 
-                // real U = soln_at_q[1] / soln_at_q[0];
-                l_2_norm_squared_values[i] += pow(u - U[(i * n_quad_pts + iquad)], 2.0) * fe_values_extra.JxW(iquad);      
+//                 // real U = soln_at_q[1] / soln_at_q[0];
+//                 int U_values_index = i * n_quad_pts + iquad;
+//                 l_2_norm_squared_values[i] += pow(u - U_values[U_values_index], 2.0) * fe_values_extra.JxW(iquad);      
 
-            }
-        }
+//             }
+//         }
 
         
 
-    }
+//     }
 
-    return l_2_norm_squared_values;
-}
+//     return l_2_norm_squared_values;
+// }
 
 template <int dim, int nstate, typename real>
 std::vector<real> BoltzmannLimiter<dim, nstate, real>::get_integrating_domain(
@@ -483,13 +485,92 @@ void BoltzmannLimiter<dim, nstate, real>::limit(
         state_min.resize(nstate,1e9);
     }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
     // global computation of L2 norm across entire solution domain for each of the microscopic velocity values
+
+    std::vector<real> bounds(2, 0.0);
+    std::vector<real> U_values;
+
+    const int k = 4;                // hard-coded here but can be manipulated based on how small we want the relative error to be
+
+    // Overintegrate the error to make sure there is not integration error in the error estimate
+    int overintegrate = 0;
+    dealii::QGauss<dim> quad_extra(poly_degree + 1 + overintegrate);
+
+    dealii::FEValues<dim, dim> fe_values_extra(*(dg->high_order_grid->mapping_fe_field), dg->fe_collection[poly_degree], quad_extra,
+        dealii::update_values | dealii::update_JxW_values | dealii::update_quadrature_points);
+
+    const unsigned int n_quad_pts = fe_values_extra.n_quadrature_points;
+    std::array<double, nstate> soln_at_q;    
+
+    // Integrate every cell and compute L2
+    std::vector<dealii::types::global_dof_index> dofs_indices(fe_values_extra.dofs_per_cell);
+
+    // iterating through each cell in the solution domain, finding the integrating domain using the minimum and maximum values along each direction
+    for (auto cell = dg->dof_handler.begin_active(); cell != dg->dof_handler.end(); ++cell) {
+        if (!cell->is_locally_owned()) continue;
+
+        fe_values_extra.reinit(cell);
+        cell->get_dof_indices(dofs_indices);
+
+        // iterating through each quad point in a given cell
+        for (unsigned int iquad = 0; iquad < n_quad_pts; ++iquad) {
+
+            std::fill(soln_at_q.begin(), soln_at_q.end(), 0.0);
+
+            // iterate for each of the DOFs in a cell ie. each of the quad points
+            for (unsigned int idof = 0; idof < fe_values_extra.dofs_per_cell; ++idof) {
+                const unsigned int istate = fe_values_extra.get_fe().system_to_component_index(idof).first;
+
+                // sets the state variable values at the given DOF
+                soln_at_q[istate] += solution[dofs_indices[idof]] * fe_values_extra.shape_value_component(idof, iquad, istate);     
+            }
+
+            real density = soln_at_q[0];
+            real pressure = euler_physics->compute_pressure(soln_at_q);
+            real theta = pressure / density;
+
+            real U = soln_at_q[1] / soln_at_q[0];
+            U_values.push_back(U);
+
+            real pot_lower_bound = U - k * sqrt(theta);
+            real pot_upper_bound = U + k * sqrt(theta);
+
+            bounds[0] = std::min(pot_lower_bound, bounds[0]);
+            bounds[1] = std::max(pot_upper_bound, bounds[1]);
+        }
+    }
+
+    const real du = (bounds[1] - bounds[0]) / (n_integration_pts - 1);
+
+    std::vector<real> l_2_norm_squared_values(n_integration_pts, 0.0);
+
+    // iterating through each u-value in the discretization of the microscopic velocity domain
+    for (int i = 0; i < n_integration_pts; ++i) {
+        
+        double u = bounds[0] + i * du;
+
+        for (auto cell = dg->dof_handler.begin_active(); cell != dg->dof_handler.end(); ++cell) {
+            if (!cell->is_locally_owned()) continue;
+
+            // iterating through each quad point in a given cell
+            for (unsigned int iquad = 0; iquad < n_quad_pts; ++iquad) {
+
+                int U_values_index = i * n_quad_pts + iquad;
+                l_2_norm_squared_values[i] += pow(u - U_values[U_values_index], 2.0) * fe_values_extra.JxW(iquad);      
+
+            }
+        }
+
+        
+
+    }
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
     for (auto soln_cell : dof_handler.active_cell_iterators()) {
         if (!soln_cell->is_locally_owned()) continue;
-
-
-
-
 
     }
 

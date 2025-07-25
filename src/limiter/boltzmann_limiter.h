@@ -62,10 +62,11 @@ protected:
 
     /// Obtaining L2 norm for Eq 8
     /// Using 2.2 from Dzanic, Martinelli 2025
-    std::vector<real> l_2_norm_squared(
-    dealii::LinearAlgebra::distributed::Vector<double>&     solution,
-    const double                                            n_integration_pts,  // # of integration points across the microscopic velocity domain, including endpoints
-    const double                                            k);
+    // std::vector<real> l_2_norm_squared(
+    // dealii::LinearAlgebra::distributed::Vector<double>&     solution,
+    // const int                                               poly_degree,
+    // const double                                            n_integration_pts,  // # of integration points across the microscopic velocity domain, including endpoints
+    // const double                                            k);
 
     /// Obtain the microscopic velocity domain using the min-max strategy over the stencil of the cell
     /// Using 3.7 from Dzanic, Martinelli 2025
