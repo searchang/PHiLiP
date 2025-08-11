@@ -64,7 +64,7 @@ protected:
 
     /// Obtain the microscopic velocity domain using the min-max strategy over the stencil of the cell
     /// Using 3.7 from Dzanic, Martinelli 2025
-    std::vector<real> get_integrating_domain(
+    std::vector< std::vector<real>> get_integrating_domain(
         const std::array<std::vector<real>, nstate>&    soln_at_q,
         const unsigned int                              n_quad_pts,
         const double                                    k);
