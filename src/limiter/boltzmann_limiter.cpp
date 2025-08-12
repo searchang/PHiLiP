@@ -507,7 +507,6 @@ void BoltzmannLimiter<dim, nstate, real>::limit(
             for (int i = 0; i < 2; ++i)
                 integrating_limits[i] = get_integrating_domain(soln_at_q[0], n_quad_pts, 4.0)[i];
                                                                                         //   ^   this is the k-value; k=4 here
-
             dealii::QGaussLobatto<dim> quad_for_l2_norm(poly_degree + 1);
             // use the integrating domain limits to develop the min-max f-function against microscopic velocity (u) points
             std::vector< std::vector<real> > min_max_envelope = get_boltzmann_distribution(soln_at_q[0], n_quad_pts, this->resolution, integrating_limits[0], integrating_limits[1], mapping_field, quad_for_l2_norm, fe_collection, poly_degree);
@@ -553,6 +552,7 @@ void BoltzmannLimiter<dim, nstate, real>::limit(
                 u_bounds[1] = std::max(U + k * sqrt(theta), u_bounds[1]);
                 v_bounds[0] = std::min(V - k * sqrt(theta), v_bounds[0]);
                 v_bounds[1] = std::max(V + k * sqrt(theta), v_bounds[1]);
+                // std::cout << "u-bounds: " << u_bounds[0] << ", " << u_bounds[1] << "\t v-bounds: " << v_bounds[0] << ", " << v_bounds[1] << std::endl;
             }    
 
             /// (1) /////////////////////////
@@ -563,6 +563,8 @@ void BoltzmannLimiter<dim, nstate, real>::limit(
 
             const int num_u = static_cast<int>((u_bounds[1] - u_bounds[0]) / resolution) + 1;
             const int num_v = static_cast<int>((v_bounds[1] - v_bounds[0]) / resolution) + 1;
+
+            std::cout << "\tnum_u=" << num_u << ",\tnum_v=" << num_v << std::endl;
             if(num_u < 0) {
                 std::cout << "Error: Integrating limits are diverging from nonphysical values....Aborting" << std::endl;
                 std::cout << "u lower bound:   " << u_bounds[0] << "    u upper bound:   " << u_bounds[1] << std::endl;
@@ -614,9 +616,11 @@ void BoltzmannLimiter<dim, nstate, real>::limit(
                         real U = euler_physics->convert_conservative_to_primitive(soln_at_iquad)[1];
                         real V = euler_physics->convert_conservative_to_primitive(soln_at_iquad)[2];
 
-                        // l2_squared += (pow(u - U, 2.0) + pow(v - V, 2.0));                                   // sums together L2 norm across element excluding quad weights
-                        l2_squared += (pow(u - U, 2.0) + pow(v - V, 2.0)) * fe_values.JxW(iquad);               // sums together L2 norm across element including quad weights   
-                        std::cout << "U = " << U << ", V = " << V << ", fe_values.JxW(iquad) = " << fe_values.JxW(iquad) << ", l2_squared = " << l2_squared << std::endl;
+                        l2_squared += sqrt(pow(u - U, 2.0) + pow(v - V, 2.0)) / n_quad_pts;                                   // sums together L2 norm across element excluding quad weights
+                        // l2_squared += (pow(u - U, 2.0) + pow(v - V, 2.0)) * fe_values.JxW(iquad);               // sums together L2 norm across element including quad weights   
+                        // if (first_run)
+                            // std::cout << "u-v = " << u-U << ", v-V = " << v-V << ", l2_squared = " << l2_squared << std::endl;
+                        // std::cout << "U = " << U << ", V = " << V << ", fe_values.JxW(iquad) = " << fe_values.JxW(iquad) << ", l2_squared = " << l2_squared << std::endl;
                     }
 
                     for (unsigned int iquad = 0; iquad < n_quad_pts; ++iquad) {
@@ -631,7 +635,8 @@ void BoltzmannLimiter<dim, nstate, real>::limit(
                         real theta = pressure/density;
 
                         g[i][j][iquad] = (density/(pow(2*pi*theta, dim/2.0)))*exp(-l2_squared/(2*theta));
-                        std::cout << "density = " << density << ", theta = " << theta << ", l2_squared = " << l2_squared << ", g = " << g[i][j][iquad] << std::endl;
+                        // std::cout << "density = " << density << ", theta = " << theta << ", l2_squared = " << l2_squared << ", g = " << g[i][j][iquad] << std::endl;
+                        // std::cout << "quad=" << iquad + 1 << ":\tu=" << u << ",\tv=" << v << ",\tg=" << g[i][j][iquad] << std::endl;
 
                         // std::cout << "u = " << u << ", v = " << v << ": g = " << g[i][j][iquad] << std::endl;
 
