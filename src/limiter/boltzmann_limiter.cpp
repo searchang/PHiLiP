@@ -103,7 +103,7 @@ std::vector<real> BoltzmannLimiter<dim, nstate, real>::get_integrating_domain(
 }
 
 template <int dim, int nstate, typename real>
-std::vector< std::vector<real> >  BoltzmannLimiter<dim, nstate, real>::get_boltzmann_distribution(
+std::vector< std::vector<real> >  BoltzmannLimiter<dim, nstate, real>::get_boltzmann_limits(
     const std::array<std::vector<real>, nstate>&                                                soln_at_q_dim,   // _dim added just to differentiate from soln_at_q which is passed in as soln_at_q[0]
     const unsigned int                                                                          n_quad_pts,
     const double                                                                                resolution,
@@ -117,7 +117,7 @@ std::vector< std::vector<real> >  BoltzmannLimiter<dim, nstate, real>::get_boltz
         std::cout << "upper_distribution_limit:   " << upper_distribution_limit << "    lower_distribution_limit:   " << lower_distribution_limit << std::endl;
         std::abort();
     }
-    std::vector< std::vector<real> > output_points(3, std::vector<real>(num_u));
+    std::vector< std::vector<real> > output_points(nstate, std::vector<real>(num_u));
 
     real pi = std::acos(-1.0);
     
@@ -164,17 +164,10 @@ std::vector< std::vector<real> >  BoltzmannLimiter<dim, nstate, real>::get_boltz
         output_points[2][i] = f_max[i];
     }
 
-    return output_points;
-}
-
-template <int dim, int nstate, typename real>
-// lower bounds are in [0][ ], upper bounds are in [1][ ]
-// density bounds - [][0], momentum bounds - [][1]:[][dim], energy bounds - [][dim+1]
-std::vector< std::vector<real>> BoltzmannLimiter<dim, nstate, real>::boltzmann_limits(
-    const std::vector<real>&            u_values,
-    const std::vector<real>&            f_min_values,
-    const std::vector<real>&            f_max_values)
-{
+    std::vector<real> u_values = output_points[0];
+    std::vector<real> f_min_values = output_points[1];
+    std::vector<real> f_max_values = output_points[2];
+    
     std::vector<std::vector<real>> limits(2, std::vector<real>(dim + 1));       // match the limiter to the size of the state vector based on # of dimensions
 
     const std::size_t N = u_values.size();
@@ -511,9 +504,9 @@ void BoltzmannLimiter<dim, nstate, real>::limit(
                                                                                         //   ^   this is the k-value; k=4 here
             dealii::QGaussLobatto<dim> quad_for_l2_norm(poly_degree + 1);
             // use the integrating domain limits to develop the min-max f-function against microscopic velocity (u) points
-            std::vector< std::vector<real> > min_max_envelope = get_boltzmann_distribution(soln_at_q[0], n_quad_pts, this->resolution, integrating_limits[0], integrating_limits[1], fe_values);
+            // std::vector< std::vector<real> > min_max_envelope = get_boltzmann_distribution(soln_at_q[0], n_quad_pts, this->resolution, integrating_limits[0], integrating_limits[1], fe_values);
                                                                                                                     //  ^  this is the resolution of the boltmann distribution plot
-            std::vector<std::vector<real>> cell_max_and_mins = boltzmann_limits(min_max_envelope[0], min_max_envelope[1], min_max_envelope[2]);
+            std::vector<std::vector<real>> cell_max_and_mins = get_boltzmann_limits(soln_at_q[0], n_quad_pts, this->resolution, integrating_limits[0], integrating_limits[1], fe_values);
 
             for(int istate = 0; istate < nstate; ++istate) {
                 if(state_max[istate] < cell_max_and_mins[1][istate])
