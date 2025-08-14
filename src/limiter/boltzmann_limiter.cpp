@@ -273,11 +273,12 @@ real BoltzmannLimiter<dim, nstate, real>::get_alpha(
         alpha = std::min(max_term, alpha);
         if (max_term < 1) std::cout << "state " << istate << " max term is " << max_term << std::endl;
         alpha = std::min(min_term, alpha);
-        if (min_term < 1) std::cout << "state " << istate << " min term is " << max_term << std::endl;
+        if (min_term < 1) std::cout << "state " << istate << " min term is " << min_term << std::endl;
         // std::cout << "\t istate: " << istate << ", entry " << 1 + 2 * istate << ": " << max_term <<
         //     ", entry " << 2 + 2 * istate << ": " << min_term << std::endl;
     }
 
+    if (alpha < 1.0) std::cout << "returning alpha = " << alpha << std::endl;
     return alpha;
 }
 
@@ -333,7 +334,7 @@ void BoltzmannLimiter<dim, nstate, real>::limit(
     dealii::Vector<double>&                                                                     alpha_value,
     const std::shared_ptr<dealii::MappingFEField<dim,dim,VectorType,DoFHandlerType>>            mapping_field) 
 {
-    std::cout << "Running limit";
+    // std::cout << "Running limit";
 
     // If use_tvb_limiter is true, apply TVB limiter before applying maximum-principle-satisfying limiter
     if (this->all_parameters->limiter_param.use_tvb_limiter == true)
@@ -459,6 +460,8 @@ void BoltzmannLimiter<dim, nstate, real>::limit(
             
             theta = get_alpha(soln_at_q_dim, n_quad_pts, soln_cell_avg, state_min, state_max);
 
+            if (theta < 1.0) std::cout << "theta value: " << theta << std::endl;
+            
             alpha_value[cell_index] = theta;
 
             // if(cell_index > 10 && cell_index < 15)
@@ -555,6 +558,8 @@ void BoltzmannLimiter<dim, nstate, real>::limit(
             //dealii::QGaussLobatto<2> quad_for_l2_norm(poly_degree + 1);
 
             /// (2+3) get_boltzmann_distribution + boltzmann_limits ///
+
+            resolution *= 1.5;
 
             const int num_u = static_cast<int>((u_bounds[1] - u_bounds[0]) / resolution) + 1;
             const int num_v = static_cast<int>((v_bounds[1] - v_bounds[0]) / resolution) + 1;
