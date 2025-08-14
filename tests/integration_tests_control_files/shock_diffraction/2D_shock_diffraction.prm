@@ -31,10 +31,10 @@ subsection ODE solver
   set ode_output = verbose
   set ode_solver_type = runge_kutta
   set initial_time_step = 0.00000001
-  #set output_solution_every_x_steps = 5
+  set output_solution_every_x_steps = 1
   set runge_kutta_method = ssprk3_ex
   set print_iteration_modulo = 1
-  set output_solution_every_dt_time_intervals = 0.01
+  #set output_solution_every_dt_time_intervals = 0.01
 end
 
 # freestream Mach number
@@ -58,8 +58,8 @@ subsection flow_solver
       set grid_ymin = 0.0
       set grid_ymax = 11.0
 
-      set number_of_grid_elements_x = 52
-      set number_of_grid_elements_y = 44
+      set number_of_grid_elements_x = 13
+      set number_of_grid_elements_y = 11
     end
   end
 end
