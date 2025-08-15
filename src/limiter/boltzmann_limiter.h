@@ -44,6 +44,9 @@ public:
     /// Function to obtain scaling value based on pressure
     using PositivityPreservingLimiter<dim, nstate, real>::get_theta2_Wang2012;
 
+        /// Function to obtain scaling value based on pressure
+    using PositivityPreservingLimiter<dim, nstate, real>::get_density_scaling_value;
+
     /// FILL THIS OUT LATER !!!!!!!!!!!!!!!!!!!!!!!!!!
     void limit(
         dealii::LinearAlgebra::distributed::Vector<double>&                                         solution,

@@ -129,6 +129,14 @@ real PositivityPreservingLimiter<dim, nstate, real>::get_theta2_Wang2012(
 
         if (nstate == dim + 2)
             p_lim = euler_physics->compute_pressure(soln_at_iquad);
+        
+        // if (dim==2) {
+        //     std::cout << "pressure is   " << p_lim 
+        //               << "  density is   " << soln_at_iquad[0]
+        //               << "  mom x is   " << soln_at_iquad[1]
+        //               << "  mom y is   " << soln_at_iquad[2]
+        //               << "  energy is   " << soln_at_iquad[3] << std::endl;
+        // }
 
         if (p_lim >= 0)
             t2[iquad] = 1;
@@ -431,7 +439,6 @@ void PositivityPreservingLimiter<dim, nstate, real>::limit(
                 }
 
                 std::cout << std::endl;
-
                 std::abort();
             }  
         }
@@ -484,13 +491,7 @@ void PositivityPreservingLimiter<dim, nstate, real>::limit(
             p_avg = euler_physics->compute_pressure(soln_cell_avg);
         }
 
-        real theta = 1.0;
-        // Obtain value used to linearly scale density - *** can comment out the first 3 lines so that theta runs every time because it's bascially 
-        //                                               *** the same scaling as Wang and Zhang
-        if (limiter_type == limiter_enum::positivity_preservingDzanic2025 && nstate == dim + 2)
-            std::cout << "Implement function to obtain alpha_1 based on max/min values" << std::endl;
-        else
-            theta = get_density_scaling_value(soln_cell_avg[0], local_min_density, lower_bound, p_avg);
+        real theta = get_density_scaling_value(soln_cell_avg[0], local_min_density, lower_bound, p_avg);
 
         // Apply limiter on density values at quadrature points
         for (unsigned int ishape = 0; ishape < n_shape_fns; ++ishape) {
@@ -538,79 +539,6 @@ void PositivityPreservingLimiter<dim, nstate, real>::limit(
                             + soln_cell_avg[istate];
                 }
             }
-        }
-
-        if (limiter_type == limiter_enum::positivity_preservingDzanic2025 && nstate == dim + 2) {
-            std::cout << "Implement function to obtain alpha_2" << std::endl;
-            // Limit values at quadrature points
-            // for (unsigned int istate = 0; istate < nstate; ++istate) {
-            //     for (unsigned int iquad = 0; iquad < n_quad_pts; ++iquad) {
-            //         real min_theta2_quad = 1e6;
-            //         for(unsigned int idim = 0; idim < dim; ++idim) {
-            //             if(theta2_quad[idim][iquad] < min_theta2_quad)
-            //                 min_theta2_quad = theta2_quad[idim][iquad];
-            //         }
-
-            //         theta2 = std::min({ min_theta2_quad, theta2_soln[iquad] });
-            //         soln_coeff[istate][iquad] = theta2 * (soln_coeff[istate][iquad] - soln_cell_avg[istate])
-            //                 + soln_cell_avg[istate];
-            //     }
-            // }
-
-        }
-        if (limiter_type == limiter_enum::positivity_preservingZhang2010 && nstate == dim + 2) {
-
-            std::array<std::vector< real >, dim> p_lim_quad;
-            std::array<real, nstate> soln_at_iquad;
-
-            for(unsigned int idim = 0; idim < dim; ++idim) {
-                p_lim_quad[idim].resize(n_quad_pts);
-                // Compute pressure at quadrature points
-                for (unsigned int iquad = 0; iquad < n_quad_pts; ++iquad) {
-                    for (unsigned int istate = 0; istate < nstate; ++istate) {
-                        soln_at_iquad[istate] = soln_at_q[idim][istate][iquad];
-                    }
-                    p_lim_quad[idim][iquad] = euler_physics->compute_pressure(soln_at_iquad);
-                }
-            }
-
-            std::array<std::vector< real >, dim> theta2_quad;
-            // Obtain value used to linearly scale state variables
-            for(unsigned int idim = 0; idim < dim; ++idim) {
-                theta2_quad[idim].resize(n_quad_pts);
-                theta2_quad[idim] = get_theta2_Zhang2010(p_lim_quad[idim], soln_cell_avg, soln_at_q[idim], n_quad_pts, lower_bound, euler_physics->gam);
-            }
-
-            // Compute pressure at solution points
-            std::vector< real > p_lim;
-            p_lim.resize(n_quad_pts);
-            for (unsigned int iquad = 0; iquad < n_quad_pts; ++iquad) {
-                for (unsigned int istate = 0; istate < nstate; ++istate) {
-                    soln_at_iquad[istate] = soln_coeff[istate][iquad];
-                }
-                p_lim[iquad] = euler_physics->compute_pressure(soln_at_iquad);
-            }
-            std::vector<real> theta2_soln = get_theta2_Zhang2010(p_lim, soln_cell_avg, soln_coeff, n_quad_pts, lower_bound, euler_physics->gam);
-
-            // Limit values at quadrature points
-            for (unsigned int istate = 0; istate < nstate; ++istate) {
-                for (unsigned int iquad = 0; iquad < n_quad_pts; ++iquad) {
-                    real min_theta2_quad = 1e6;
-                    for(unsigned int idim = 0; idim < dim; ++idim) {
-                        if(theta2_quad[idim][iquad] < min_theta2_quad)
-                            min_theta2_quad = theta2_quad[idim][iquad];
-                    }
-
-                    theta2 = std::min({ min_theta2_quad, theta2_soln[iquad] });
-                    soln_coeff[istate][iquad] = theta2 * (soln_coeff[istate][iquad] - soln_cell_avg[istate])
-                            + soln_cell_avg[istate];
-                }
-            }
-        }
-
-        if (isnan(theta2)) {
-            std::cout << "Error: Theta2 is NaN - Aborting... " << std::endl << theta2 << std::endl << std::flush;
-            std::abort();
         }
 
         // Write limited solution back and verify that positivity of density is satisfied

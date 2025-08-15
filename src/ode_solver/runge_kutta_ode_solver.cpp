@@ -88,6 +88,8 @@ void RungeKuttaODESolver<dim,real,n_rk_stages,MeshType>::step_in_time (real dt, 
                 true,
                 this->dg->alpha_value,
                 this->dg->high_order_grid->mapping_fe_field);
+            // std::cout << "sleep stage" << std::endl;
+            // sleep(5);
         }
 
         //set the DG current time for unsteady source terms
@@ -139,6 +141,8 @@ void RungeKuttaODESolver<dim,real,n_rk_stages,MeshType>::step_in_time (real dt, 
             false,
             this->dg->alpha_value,
             this->dg->high_order_grid->mapping_fe_field);
+        // std::cout << "sleep solution assembled" << std::endl;
+        // sleep(5);
     }
     
     ++(this->current_iteration);
