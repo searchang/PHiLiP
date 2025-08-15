@@ -292,6 +292,7 @@ real BoltzmannLimiter<dim, nstate, real>::get_alpha(
                       << "  alpha:  " << alpha << std::endl;
 
             std::cout << "state " << istate 
+                      << " MIN STATE VALUES:   " << min_state_values[istate]
                       << " min term is " << soln_cell_min[istate] 
                       << "  avg is:  " << soln_cell_avg[istate] 
                       << " the diff: " << (soln_cell_min[istate] - soln_cell_avg[istate])
@@ -516,7 +517,7 @@ void BoltzmannLimiter<dim, nstate, real>::limit(
             // using parameters shown, including soln_cell_min and _max, obtain alpha scaling factor for first scaling
             // std::cout << cell_index << "<<<< SOLUTION CELL INDEX" << std::endl;
             
-            alpha = get_alpha(soln_at_q_dim, n_quad_pts, soln_cell_avg, state_min, state_max);
+            alpha = get_alpha(soln_coeff, n_quad_pts, soln_cell_avg, state_min, state_max);
 
             //if (theta < 1.0) std::cout << "theta value: " << theta << std::endl;
             
