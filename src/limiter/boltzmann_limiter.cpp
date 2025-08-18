@@ -154,7 +154,7 @@ std::vector< std::vector<real> >  BoltzmannLimiter<dim, nstate, real>::get_boltz
             
             g[i][iquad] = (density/(pow(2*pi*theta, dim/2.0)))*exp(-l2_squared/(2*theta));
             //pow(density, dim / 2.0 + 1.0) / (pow(2 * pi * pressure, dim / 2.0)) * exp(-density / (2 * pressure) * l2_squared);
-            // std::cout << "density = " << density << ", theta = " << theta << ", l2_squared = " << l2_squared << ", g = " << g[i][iquad] << std::endl;
+            std::cout << "density = " << density << ", theta = " << theta << ", l2_squared = " << l2_squared << ", g = " << g[i][iquad] << std::endl;
 
             f_min[i] = std::min(f_min[i], g[i][iquad]);
             f_max[i] = std::max(f_max[i], g[i][iquad]);
@@ -248,7 +248,7 @@ real BoltzmannLimiter<dim, nstate, real>::get_alpha(
         max_state_values[istate] = soln_at_q_dim[istate][0];
         
         // iterate through the rest of the quad points and obtain minimum and maximum values
-        for (unsigned int iquad = 1; iquad < n_quad_pts; ++iquad){
+        for (unsigned int iquad = 0; iquad < n_quad_pts; ++iquad){
 
             // replace minimum value if lower than previous minimum
             if (soln_at_q_dim[istate][iquad] < min_state_values[istate])
@@ -265,42 +265,43 @@ real BoltzmannLimiter<dim, nstate, real>::get_alpha(
 
         min_denominators[istate] = min_state_values[istate] - soln_cell_avg[istate];
         max_denominators[istate] = max_state_values[istate] - soln_cell_avg[istate];
-        
+        // std::cout << "state:   " << istate << " max state:  " << max_state_values[istate] << "   avg:   " << soln_cell_avg[istate] << std::endl;
+        // std::cout << "state:   " << istate << " min state:  " << min_state_values[istate] << "   avg:   " << soln_cell_avg[istate] << std::endl << std::endl;
     }
 
     for (int istate = 0; istate < nstate; ++istate) {
-        // real max_term = std::abs((soln_cell_max[istate] - soln_cell_avg[istate]) / max_denominators[istate]);
-        // real min_term = std::abs((soln_cell_min[istate] - soln_cell_avg[istate]) / min_denominators[istate]);
+        real max_term = std::abs((soln_cell_max[istate] - soln_cell_avg[istate]) / max_denominators[istate]);
+        real min_term = std::abs((soln_cell_min[istate] - soln_cell_avg[istate]) / min_denominators[istate]);
         
-        real max_term = 1.0;
-        if (std::abs((soln_cell_max[istate] - soln_cell_avg[istate])) > 1e-3)
-            max_term = std::abs((soln_cell_max[istate] - soln_cell_avg[istate]) / max_denominators[istate]);
+        // real max_term = 1.0;
+        // if (std::abs((soln_cell_max[istate] - soln_cell_avg[istate])) > 1e-3)
+        //     max_term = std::abs((soln_cell_max[istate] - soln_cell_avg[istate]) / max_denominators[istate]);
 
-        real min_term = 1.0;
-        if (std::abs((soln_cell_min[istate] - soln_cell_avg[istate])) > 1e-3)
-            max_term = std::abs((soln_cell_min[istate] - soln_cell_avg[istate]) / min_denominators[istate]);
+        // real min_term = 1.0;
+        // if (std::abs((soln_cell_min[istate] - soln_cell_avg[istate])) > 1e-3)
+        //     max_term = std::abs((soln_cell_min[istate] - soln_cell_avg[istate]) / min_denominators[istate]);
 
         alpha = std::min(max_term, alpha);
         alpha = std::min(min_term, alpha);
 
-        if (max_term < 0.1 || min_term < 0.1) {
-            std::cout << "state " << istate 
-                      << " max term is " << soln_cell_max[istate] 
-                      << "  avg is:  " << soln_cell_avg[istate] 
-                      << " the diff: " << (soln_cell_max[istate] - soln_cell_avg[istate])
-                      << " the denom:  " << max_denominators[istate]
-                      << "  alpha:  " << alpha << std::endl;
+        // if (max_term < 0.1 || min_term < 0.1) {
+        //     std::cout << "state " << istate 
+        //               << " max term is " << soln_cell_max[istate] 
+        //               << "  avg is:  " << soln_cell_avg[istate] 
+        //               << " the diff: " << (soln_cell_max[istate] - soln_cell_avg[istate])
+        //               << " the denom:  " << max_denominators[istate]
+        //               << "  alpha:  " << alpha << std::endl;
 
-            std::cout << "state " << istate 
-                      << " MIN STATE VALUES:   " << min_state_values[istate]
-                      << " min term is " << soln_cell_min[istate] 
-                      << "  avg is:  " << soln_cell_avg[istate] 
-                      << " the diff: " << (soln_cell_min[istate] - soln_cell_avg[istate])
-                      << " the denom:  " << min_denominators[istate]
-                      << "  alpha:  " << alpha << std::endl;
+        //     std::cout << "state " << istate 
+        //               //<< " MIN STATE VALUES:   " << min_state_values[istate]
+        //               << " min term is " << soln_cell_min[istate] 
+        //               << "  avg is:  " << soln_cell_avg[istate] 
+        //               << " the diff: " << (soln_cell_min[istate] - soln_cell_avg[istate])
+        //               << " the denom:  " << min_denominators[istate]
+        //               << "  alpha:  " << alpha << std::endl<<std::endl;
             
-            // sleep(5);
-        }
+        //     // sleep(5);
+        // }
         // std::cout << "\t istate: " << istate << ", entry " << 1 + 2 * istate << ": " << max_term <<
         //     ", entry " << 2 + 2 * istate << ": " << min_term << std::endl;
     }
@@ -381,7 +382,7 @@ void BoltzmannLimiter<dim, nstate, real>::limit(
     soln_basis_GL.build_1D_volume_operator(oneD_fe_collection_1state[max_degree], oneD_quad_GL);
 
     if(first_run) {
-        state_max.resize(nstate,1e-9);
+        state_max.resize(nstate,-1e9);
         state_min.resize(nstate,1e9);
     }
 
@@ -513,12 +514,22 @@ void BoltzmannLimiter<dim, nstate, real>::limit(
 
         const dealii::types::global_dof_index cell_index = soln_cell->active_cell_index();
         real alpha = 1.0;
-        if(!first_run) {
-            // using parameters shown, including soln_cell_min and _max, obtain alpha scaling factor for first scaling
+        if(first_run) {
+            // std::cout << "============================================== FIRST RUN =============================================="<<std::endl;
+            // for(int istate = 0; istate < nstate; ++istate){
+            //     std::cout << "state " << istate 
+            //               << " max term is " << state_max[istate] 
+            //               << std::endl;
+
+            //     std::cout << "state " << istate 
+            //               << " min term is " << state_min[istate] 
+            //               << std::endl<<std::endl;
+            // }
+        } else {// using parameters shown, including soln_cell_min and _max, obtain alpha scaling factor for first scaling
             // std::cout << cell_index << "<<<< SOLUTION CELL INDEX" << std::endl;
             
             alpha = get_alpha(soln_coeff, n_quad_pts, soln_cell_avg, state_min, state_max);
-
+            // sleep(5);
             //if (theta < 1.0) std::cout << "theta value: " << theta << std::endl;
             
             alpha_value[cell_index] = alpha;
@@ -600,8 +611,8 @@ void BoltzmannLimiter<dim, nstate, real>::limit(
                 real density = soln_at_iquad[0];
                 real pressure = euler_physics->compute_pressure(soln_at_iquad);
 
-                if(pressure < 0)
-                    std::cout << density << "   " << soln_at_iquad[1] << "    " << soln_at_iquad[2] << "    " << soln_at_iquad[3] << std::endl;
+                // if(pressure < 0)
+                //     std::cout << density << "   " << soln_at_iquad[1] << "    " << soln_at_iquad[2] << "    " << soln_at_iquad[3] << std::endl;
 
                 real theta = pressure / density;              
 
@@ -611,6 +622,10 @@ void BoltzmannLimiter<dim, nstate, real>::limit(
                 v_bounds[1] = std::max(V + k * sqrt(theta), v_bounds[1]);
                 //  std::cout << "u-bounds: " << u_bounds[0] << ", " << u_bounds[1] << "\t v-bounds: " << v_bounds[0] << ", " << v_bounds[1] << std::endl;
             }    
+            u_bounds[0] = dealii::Utilities::MPI::min(u_bounds[0], this->mpi_communicator);
+            u_bounds[1] = dealii::Utilities::MPI::max(u_bounds[1], this->mpi_communicator);
+            v_bounds[0] = dealii::Utilities::MPI::min(v_bounds[0], this->mpi_communicator);
+            v_bounds[1] = dealii::Utilities::MPI::max(v_bounds[1], this->mpi_communicator);
 
             /// (1) /////////////////////////
 
@@ -618,7 +633,7 @@ void BoltzmannLimiter<dim, nstate, real>::limit(
 
             /// (2+3) get_boltzmann_distribution + boltzmann_limits ///
             resolution = this->all_parameters->flow_solver_param.resolution;
-            resolution *= 1.5;
+            //resolution *= 2.0;
 
             const int num_u = static_cast<int>((u_bounds[1] - u_bounds[0]) / resolution) + 1;
             const int num_v = static_cast<int>((v_bounds[1] - v_bounds[0]) / resolution) + 1;
@@ -637,9 +652,9 @@ void BoltzmannLimiter<dim, nstate, real>::limit(
 
             real pi = std::acos(-1.0);
 
-            std::vector<std::vector<real>> f_min( num_u, std::vector<real>(num_v, std::numeric_limits<real>::max()) );
-            std::vector<std::vector<real>> f_max( num_u, std::vector<real>(num_v, std::numeric_limits<real>::lowest()) );
-            std::vector <std::vector <std::vector<real>>> g( num_u, std::vector <std::vector<real>>(num_v, std::vector<real>(n_quad_pts, 0.0)) );
+            std::vector<std::vector<real>> f_min( num_u+1, std::vector<real>(num_v+1, std::numeric_limits<real>::max()) );
+            std::vector<std::vector<real>> f_max( num_u+1, std::vector<real>(num_v+1, std::numeric_limits<real>::lowest()) );
+            std::vector <std::vector <std::vector<real>>> g( num_u+1, std::vector <std::vector<real>>(num_v+1, std::vector<real>(n_quad_pts, 0.0)) );
             
             // initializing boltzmann limits
             real rho_min = 0.0;
@@ -655,15 +670,19 @@ void BoltzmannLimiter<dim, nstate, real>::limit(
                 dealii::update_values | dealii::update_JxW_values | dealii::update_quadrature_points);
 
             fe_values_2D.reinit(soln_cell);
-            for (int i = 0; i < num_u; ++i) {
+            // double resolution_u = abs(u_bounds[1]-u_bounds[0])/num_u;
+            // double resolution_v = abs(v_bounds[1]-v_bounds[0])/num_v;
+
+            for (int i = 0; i < num_u+1; ++i) {
                 
                 real u = u_bounds[0] + i * resolution;
 
                 real l2_squared = 0.0;
                 
-                for (int j = 0; j < num_v; ++j) {
+                for (int j = 0; j < num_v+1; ++j) {
                     
                     real v = v_bounds[0] + j * resolution;
+                    // std::cout << "(u,v):  (" << u << "," << v << ")" << std::endl;
 
                     std::array<real, nstate> soln_at_iquad;
 
@@ -677,11 +696,12 @@ void BoltzmannLimiter<dim, nstate, real>::limit(
                         real V = euler_physics->convert_conservative_to_primitive(soln_at_iquad)[2];
 
                         // l2_squared += (pow(u - U, 2.0) + pow(v - V, 2.0));                                   // sums together L2 norm across element excluding quad weights
-                        l2_squared += pow(pow(abs(u - U), 2.0) + pow(abs(v - V), 2.0),0.5) * fe_values_2D.JxW(iquad);               // sums together L2 norm across element including quad weights   
+                        l2_squared += pow(pow(abs(u - U), 2.0) + pow(abs(v - V), 2.0),1.0/2.0) * fe_values_2D.JxW(iquad);               // sums together L2 norm across element including quad weights   
                         // std::cout << "u = " << u << ", v = " << v <<std::endl;
                         // std::cout << "U = " << U << ", V = " << V << ", fe_values_2D.JxW(iquad) = " << fe_values_2D.JxW(iquad) << ", l2_squared = " << l2_squared << std::endl;
 
                     }
+                    double l2_squared_mpi = dealii::Utilities::MPI::sum(l2_squared, this->mpi_communicator);
                     // std::cout << "fmax:   " << f_max[i][j] << "   fmin:   " << f_min[i][j] << std::endl;
                     for (unsigned int iquad = 0; iquad < n_quad_pts; ++iquad) {
                         for (unsigned int istate = 0; istate < nstate; ++istate) {          // iterates through each state variable (ρ, m, E)
@@ -697,11 +717,13 @@ void BoltzmannLimiter<dim, nstate, real>::limit(
 
                         real theta = pressure/density;
 
-                        g[i][j][iquad] = (density/(pow(2*pi*theta, dim/2.0)))*exp(-pow(l2_squared,2.0)/(2*theta));
+                        g[i][j][iquad] = (density/(pow(2*pi*theta, dim/2.0)))*exp(-pow(l2_squared_mpi,1.0)/(2*theta));
                         // std::cout << "density = " << density << ", theta = " << theta << ", l2_squared = " << l2_squared << ", g = " << g[i][j][iquad] << std::endl;
                         // std::cout << "quad=" << iquad + 1 << ":\tu=" << u << ",\tv=" << v << ",\tg=" << g[i][j][iquad] << std::endl;
 
                         // std::cout << "u = " << u << ", v = " << v << ": g = " << g[i][j][iquad] << std::endl;
+                        // std::cout << "g:   " << g[i][j][iquad] << std::endl;
+                        // std::cout << "fmax:   " << f_max[i][j] << "   fmin:   " << f_min[i][j] << std::endl;
                         f_min[i][j] = std::min(f_min[i][j], g[i][j][iquad]);
                         f_max[i][j] = std::max(f_max[i][j], g[i][j][iquad]);
                         // std::cout << "g:   " << g[i][j][iquad] << std::endl;
@@ -751,6 +773,14 @@ void BoltzmannLimiter<dim, nstate, real>::limit(
                     E_max += 0.5 * u_v_dot_product * f_max_ave * dudv;
                 }
             }
+            rho_min = dealii::Utilities::MPI::sum(rho_min,this->mpi_communicator);
+            rho_max = dealii::Utilities::MPI::sum(rho_max,this->mpi_communicator);
+            u_momentum_min = dealii::Utilities::MPI::sum(u_momentum_min,this->mpi_communicator);
+            u_momentum_max = dealii::Utilities::MPI::sum(u_momentum_max,this->mpi_communicator);
+            v_momentum_min = dealii::Utilities::MPI::sum(v_momentum_min,this->mpi_communicator);
+            v_momentum_max = dealii::Utilities::MPI::sum(v_momentum_max,this->mpi_communicator);
+            E_min = dealii::Utilities::MPI::sum(E_min,this->mpi_communicator);
+            E_max = dealii::Utilities::MPI::sum(E_max,this->mpi_communicator);
 
             std::vector<std::vector<real>> cell_max_and_mins(2, std::vector<real>(nstate));
 
@@ -764,24 +794,47 @@ void BoltzmannLimiter<dim, nstate, real>::limit(
             cell_max_and_mins[1][3] = E_max;
             
             // for(int istate = 0; istate < nstate; ++istate) {
-            //     //if(istate==3 && (cell_max_and_mins[1][istate] > 2.0 || cell_max_and_mins[0][istate] > 2.0))
+            //     if(istate==3/*  && (cell_max_and_mins[1][istate] > 2.0 || cell_max_and_mins[0][istate] > 2.0) */)
             //         std::cout << "state " << istate << " max " << cell_max_and_mins[1][istate] << " min " << cell_max_and_mins[0][istate] << std::endl;
             // }
 
 
             // just checking if the min and max limits from the boltzmann integration are above and below 10e-9 and 10e9 respectively
             for(int istate = 0; istate < nstate; ++istate) {
-                if(state_max[istate] < cell_max_and_mins[1][istate])
+                if(state_max[istate] < cell_max_and_mins[1][istate]) {
+                    // std::cout << "replace max:  " << state_max[istate] << "   " << cell_max_and_mins[1][istate]<<std::endl;
                     state_max[istate] = cell_max_and_mins[1][istate];
-                if(state_min[istate] > cell_max_and_mins[0][istate])
+                }
+                if(state_min[istate] > cell_max_and_mins[0][istate]){
+                    // std::cout << "replace min:  " << state_min[istate] << "   " << cell_max_and_mins[0][istate]<<std::endl;
                     state_min[istate] = cell_max_and_mins[0][istate];
+                }
+                // state_max[istate] = dealii::Utilities::MPI::max(state_max[istate], this->mpi_communicator);
+                // state_min[istate] = dealii::Utilities::MPI::min(state_min[istate], this->mpi_communicator);
             }
+            
+            // sleep(5);
+            // if(!first_run) {
+            //     std::cout << "============================================== MAX/MINs =============================================="<<std::endl;
+            //     for(int istate = 0; istate < nstate; ++istate){
+            //         std::cout << "state " << istate 
+            //                     << " max term is " << state_max[istate] 
+            //                     << std::endl;
+
+            //         std::cout << "state " << istate 
+            //                     << " min term is " << state_min[istate] 
+            //                     << std::endl<<std::endl;
+            //     }
+            //     sleep(5);
+            // }
         }
             
 
         // Get epsilon (lower bound for rho) for theta limiter
         if(state_min[0] < lower_bound)
             state_min[0] = lower_bound;
+        if(state_min[3] < lower_bound)
+            state_min[3] = lower_bound;
 
             
         real theta2 = 1.0;
@@ -815,6 +868,17 @@ void BoltzmannLimiter<dim, nstate, real>::limit(
     }
     if(first_run) {
         first_run = false;
+        // this->pcout << "============================================== FIRST RUN COMPLETE =============================================="<<std::endl;
+        // for(int istate = 0; istate < nstate; ++istate){
+        //     this->pcout << "state " << istate 
+        //                 << " max term is " << state_max[istate] 
+        //                 << std::endl;
+
+        //     this->pcout << "state " << istate 
+        //                 << " min term is " << state_min[istate] 
+        //                 << std::endl<<std::endl;
+        // }
+        // sleep(5);
     }
 }
 

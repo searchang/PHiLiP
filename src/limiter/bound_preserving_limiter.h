@@ -54,6 +54,11 @@ public:
         bool                                                                                        is_it_a_stage,
         dealii::Vector<double>&                                                                     alpha_value,
         const std::shared_ptr<dealii::MappingFEField<dim,dim,VectorType,DoFHandlerType>>            mapping_field) = 0;
+
+// protected:
+//     const MPI_Comm mpi_communicator; ///< MPI communicator.
+//     const int mpi_rank; ///< MPI rank.
+//     dealii::ConditionalOStream pcout; ///< Parallel std::cout that only outputs on mpi_rank==0
 }; // End of BoundPreservingLimiter Class
 
 /// Base Class for bound preserving limiters templated on state
@@ -94,7 +99,11 @@ public:
         const std::array<std::vector<real>, nstate>&            soln_at_q,
         const unsigned int                                      n_quad_pts,
         const std::vector<real>&                                quad_weights);
-
+    
+protected:
+    const MPI_Comm mpi_communicator; ///< MPI communicator.
+    const int mpi_rank; ///< MPI rank.
+    dealii::ConditionalOStream pcout; ///< Parallel std::cout that only outputs on mpi_rank==0
 }; // End of BoundPreservingLimiterState Class
 } // PHiLiP namespace
 

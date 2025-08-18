@@ -8,13 +8,17 @@ BoundPreservingLimiter<dim, real>::BoundPreservingLimiter(
     const int nstate_input,
     const Parameters::AllParameters* const parameters_input)
     : nstate(nstate_input)
-    , all_parameters(parameters_input) {}
+    , all_parameters(parameters_input)
+{}
 
 
 template <int dim, int nstate, typename real>
 BoundPreservingLimiterState<dim, nstate, real>::BoundPreservingLimiterState(
     const Parameters::AllParameters* const parameters_input)
     : BoundPreservingLimiter<dim, real>::BoundPreservingLimiter(nstate, parameters_input)
+    , mpi_communicator(MPI_COMM_WORLD)
+    , mpi_rank(dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD))
+    , pcout(std::cout, mpi_rank==0) 
 {}
 
 template <int dim, int nstate, typename real>
