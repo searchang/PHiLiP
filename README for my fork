@@ -1,0 +1,14 @@
+__Branches on my fork__
+
+separated-2D-implementation
+- most recent code
+- divided 1D and 2D implementations into separated if loops depending on the dim==
+
+2D-implementation
+- attempted to generalize Boltzmann limiter functions to n dimensions but was not successful due to the need to change the dimensions of the microscopic velocity space that would be integrated
+
+create-boltzmann-limiter-class
+- Boltzmann functions moved out of positivity-preserving limiter and into own boltzmann_limiter.* files
+
+boltzmann_distribution_function
+- added boltzmann limiter functions to positivity preserving limiter for 1D test cases according to Dzanic et al. 2025
